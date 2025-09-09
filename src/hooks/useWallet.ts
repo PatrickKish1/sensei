@@ -13,7 +13,7 @@ export interface WalletState {
 
 export const useWallet = () => {
   const { address, isConnected, chainId } = useAccount();
-  const { connect, isLoading: isConnecting } = useConnect();
+  const { connect, connectAsync, status } = useConnect();
   const { disconnect } = useDisconnect();
   const [ensName, setEnsName] = useState<string>();
 
@@ -38,7 +38,7 @@ export const useWallet = () => {
   const walletState: WalletState = {
     address: address || null,
     isConnected,
-    isConnecting,
+    isConnecting: status === 'loading',
     chainId: chainId || null,
     ensName,
   };
@@ -60,6 +60,7 @@ export const useWallet = () => {
   return {
     ...walletState,
     connect,
+    connectAsync,
     disconnect,
     getUserId,
     getDisplayName,
