@@ -13,7 +13,7 @@ export interface WalletState {
 
 export const useWallet = () => {
   const { address, isConnected, chainId } = useAccount();
-  const { connect, connectors, isLoading: isConnecting } = useConnect();
+  const { connect, isLoading: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
   const [ensName, setEnsName] = useState<string>();
 
@@ -61,7 +61,6 @@ export const useWallet = () => {
     ...walletState,
     connect,
     disconnect,
-    connectors,
     getUserId,
     getDisplayName,
   };
