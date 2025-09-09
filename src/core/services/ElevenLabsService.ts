@@ -606,9 +606,17 @@ class ElevenLabsService {
     try {
       // Case 1: array of PCM float samples
       if (Array.isArray(audio) || audio instanceof Float32Array) {
-        const samples = Array.isArray(audio) ? new Float32Array(audio) : audio;
-        const buffer = audioContext.createBuffer(1, samples.length, audioContext.sampleRate);
-        buffer.copyToChannel(samples, 0, 0);
+        const samplesArray = Array.isArray(audio)
+          ? new Float32Array(audio)
+          : (() => {
+              const src = audio as Float32Array;
+              const dst = new Float32Array(src.length);
+              dst.set(src as unknown as Float32Array);
+              return dst;
+            })();
+        const buffer = audioContext.createBuffer(1, samplesArray.length, audioContext.sampleRate);
+        const channelData = buffer.getChannelData(0);
+        channelData.set(samplesArray);
         const source = audioContext.createBufferSource();
         source.buffer = buffer;
         source.connect(audioContext.destination);
