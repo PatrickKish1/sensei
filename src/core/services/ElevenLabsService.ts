@@ -92,6 +92,7 @@ export interface VoiceConferenceConfig {
 export interface ConversationSession {
   session_id: string;
   agent_id: string;
+  voice_id?: string;
   is_active: boolean;
   start_time: Date;
   end_time?: Date;
@@ -595,6 +596,56 @@ class ElevenLabsService {
    */
   getModelInfo(modelId: string) {
     return getModelInfo(modelId);
+  }
+
+  /**
+   * Play audio data into a given AudioContext destination.
+   * Accepts either base64-encoded audio (mp3/wav/pcm) or an array of float samples.
+   */
+  private async playAudio(audio: string | number[] | Float32Array | ArrayBuffer, audioContext: AudioContext) {
+    try {
+      // Case 1: array of PCM float samples
+      if (Array.isArray(audio) || audio instanceof Float32Array) {
+        const samples = Array.isArray(audio) ? new Float32Array(audio) : audio;
+        const buffer = audioContext.createBuffer(1, samples.length, audioContext.sampleRate);
+        buffer.copyToChannel(samples, 0, 0);
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start();
+        return;
+      }
+
+      // Case 2: ArrayBuffer provided directly
+      if (audio instanceof ArrayBuffer) {
+        const decoded = await audioContext.decodeAudioData(audio);
+        const source = audioContext.createBufferSource();
+        source.buffer = decoded;
+        source.connect(audioContext.destination);
+        source.start();
+        return;
+      }
+
+      // Case 3: base64-encoded audio string
+      if (typeof audio === 'string') {
+        // Remove possible data URL prefix
+        const base64 = audio.includes(',') ? audio.split(',')[1] : audio;
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const arrayBuffer = bytes.buffer;
+        const decoded = await audioContext.decodeAudioData(arrayBuffer);
+        const source = audioContext.createBufferSource();
+        source.buffer = decoded;
+        source.connect(audioContext.destination);
+        source.start(0);
+        return;
+      }
+    } catch (err) {
+      console.error('playAudio failed:', err);
+    }
   }
 }
 
