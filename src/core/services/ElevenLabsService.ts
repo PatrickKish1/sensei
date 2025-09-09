@@ -79,6 +79,15 @@ export interface ConversationalAIConfig {
   connection_type?: 'webrtc' | 'websocket';
 }
 
+export interface VoiceConferenceConfig {
+  conferenceId: string;
+  participants: string[];
+  hostId: string;
+  voiceId: string;
+  voiceSettings?: VoiceSettings;
+  language?: string;
+}
+
 // Conversation Session
 export interface ConversationSession {
   session_id: string;
@@ -452,6 +461,104 @@ class ElevenLabsService {
       this.currentSession.is_active = false;
       this.currentSession.end_time = new Date();
       this.currentSession = null;
+    }
+  }
+
+  /**
+   * Start a voice conference with multiple participants
+   */
+  async startConference(config: VoiceConferenceConfig): Promise<ConversationSession> {
+    try {
+      console.log('ElevenLabsService - startConference called with config:', config);
+      const sessionId = `conference_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Initialize audio context
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Get user media
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
+
+      // For conference, we'll use the first agent as the primary voice
+      const primaryAgentId = config.participants.find(p => p !== config.hostId) || config.participants[0];
+      
+      // Get signed URL for WebSocket connection
+      console.log('ElevenLabsService - calling getConversationSignedUrl for conference with agent_id:', primaryAgentId);
+      const signedUrl = await this.getConversationSignedUrl(primaryAgentId);
+      const websocket = new WebSocket(signedUrl);
+
+      // Set up WebSocket event handlers
+      websocket.addEventListener('open', () => {
+        console.log('Conference WebSocket connected');
+      });
+
+      websocket.addEventListener('message', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Conference WebSocket message:', data);
+          
+          // Handle different message types
+          if (data.type === 'audio') {
+            this.playAudio(data.audio, audioContext);
+          } else if (data.type === 'transcript') {
+            console.log('Conference transcript:', data.text);
+          }
+        } catch (error) {
+          console.error('Error processing conference WebSocket message:', error);
+        }
+      });
+
+      websocket.addEventListener('error', (error) => {
+        console.error('Conference WebSocket error:', error);
+      });
+
+      websocket.addEventListener('close', () => {
+        console.log('Conference WebSocket disconnected');
+      });
+
+      // Set up audio processing for conference
+      const source = audioContext.createMediaStreamSource(mediaStream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      
+      processor.onaudioprocess = (event) => {
+        if (websocket.readyState === WebSocket.OPEN) {
+          const audioData = event.inputBuffer.getChannelData(0);
+          const audioBuffer = audioContext.createBuffer(1, audioData.length, audioContext.sampleRate);
+          audioBuffer.copyToChannel(audioData, 0);
+          
+          // Send audio data to WebSocket
+          websocket.send(JSON.stringify({
+            type: 'audio',
+            data: Array.from(audioData)
+          }));
+        }
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+
+      const session: ConversationSession = {
+        session_id: sessionId,
+        agent_id: primaryAgentId,
+        voice_id: config.voiceId,
+        websocket,
+        audio_context: audioContext,
+        media_stream: mediaStream,
+        start_time: new Date(),
+        is_active: true
+      };
+
+      this.currentSession = session;
+      return session;
+
+    } catch (error) {
+      console.error('Error starting conference:', error);
+      throw error;
     }
   }
 

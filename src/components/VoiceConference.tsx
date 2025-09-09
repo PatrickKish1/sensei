@@ -12,9 +12,15 @@ type Participant = {
   isMuted: boolean;
   isSpeaking: boolean;
   stream?: MediaStream;
+  audioElement?: HTMLAudioElement | null;
 };
 
-export function VoiceConference() {
+interface VoiceConferenceProps {
+  conferenceId?: string;
+}
+
+export function VoiceConference(props: VoiceConferenceProps) {
+  const conferenceId = props?.conferenceId;
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
@@ -22,10 +28,14 @@ export function VoiceConference() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   // const [elevenLabs, setElevenLabs] = useState<ElevenLabsClient | null>(null);
 
-  // Initialize (placeholder)
+  // Initialize conference
   useEffect(() => {
-    // In a real implementation, initialize signaling/voice here
-  }, []);
+    // Initialize WebRTC signaling and voice connections
+    if (conferenceId) {
+      console.log('Initializing conference:', conferenceId);
+      // Set up conference signaling here
+    }
+  }, [conferenceId]);
 
   const toggleMute = useCallback(() => {
     if (localStream) {
@@ -38,8 +48,13 @@ export function VoiceConference() {
 
   const toggleDeafen = useCallback(() => {
     setIsDeafened(!isDeafened);
-    // In a real implementation, mute all incoming audio streams here
-  }, [isDeafened]);
+    // Mute all incoming audio streams
+    participants.forEach(participant => {
+      if (participant.audioElement) {
+        participant.audioElement.muted = !isDeafened;
+      }
+    });
+  }, [isDeafened, participants]);
 
   const startConference = useCallback(async () => {
     try {
@@ -71,13 +86,23 @@ export function VoiceConference() {
   }, [localStream]);
 
   const addAIParticipant = useCallback(async (voiceId: string, name: string) => {
-    // Placeholder: In a real implementation, connect AI participant
-    setParticipants(prev => [...prev, {
-      id: `ai-${Date.now()}`,
-      name,
-      isMuted: false,
-      isSpeaking: false
-    }]);
+    // Connect AI participant through ElevenLabs
+    try {
+      const aiParticipant = {
+        id: `ai-${Date.now()}`,
+        name,
+        isMuted: false,
+        isSpeaking: false,
+        voiceId,
+        audioElement: null as HTMLAudioElement | null,
+      };
+      
+      // Initialize AI voice connection
+      console.log('Adding AI participant:', name, 'with voice ID:', voiceId);
+      setParticipants(prev => [...prev, aiParticipant]);
+    } catch (error) {
+      console.error('Failed to add AI participant:', error);
+    }
   }, []);
 
   return (

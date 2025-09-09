@@ -108,8 +108,10 @@ export function getSupportAgentInfo() {
 }
 
 // Helper function to check if a topic is supported
-export function isTopicSupported(topic: string): boolean {
-  return SUPPORT_AGENT_CONFIG.supportedTopics.includes(topic);
+export type SupportedTopic = typeof SUPPORT_AGENT_CONFIG.supportedTopics[number];
+
+export function isTopicSupported(topic: string): topic is SupportedTopic {
+  return (SUPPORT_AGENT_CONFIG.supportedTopics as readonly string[]).includes(topic);
 }
 
 // Helper function to get quick actions

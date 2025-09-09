@@ -87,7 +87,7 @@ export const ConversationHistory: React.FC<ConversationHistoryProps> = ({
 
   // Get all unique topics for filter dropdown
   const allTopics = Array.from(new Set(conversations.flatMap(c => 
-    [c.conversationName, ...c.commonTopics].filter(Boolean)
+    [c.conversationName, ...c.commonTopics].filter((topic): topic is string => Boolean(topic))
   )));
 
   const toggleTopicExpansion = (topic: string) => {
@@ -170,7 +170,7 @@ export const ConversationHistory: React.FC<ConversationHistoryProps> = ({
               key={topic}
               variant={filterTopic === topic ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setFilterTopic(topic)}
+              onClick={() => topic && setFilterTopic(topic)}
               className="text-xs"
             >
               {topic}

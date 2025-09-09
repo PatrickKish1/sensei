@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { elevenLabsService, ConversationConfig, ConversationSession, VoiceSettings } from '@/core/services/ElevenLabsService';
+import { elevenLabsService, ConversationalAIConfig, ConversationSession, VoiceSettings, VoiceConferenceConfig } from '@/core/services/ElevenLabsService';
 
 export interface UseVoiceConversationReturn {
   // State
@@ -11,7 +11,8 @@ export interface UseVoiceConversationReturn {
   error: string | null;
   
   // Actions
-  startConversation: (config: ConversationConfig) => Promise<void>;
+  startConversation: (config: ConversationalAIConfig) => Promise<void>;
+  startConference: (config: VoiceConferenceConfig) => Promise<void>;
   endConversation: () => Promise<void>;
   toggleMute: () => void;
   toggleListening: () => void;
@@ -31,6 +32,7 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
   const [session, setSession] = useState<ConversationSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings | null>(null);
+  const [currentVoiceId, setCurrentVoiceId] = useState<string>('default');
 
   // Check if conversation is active on mount
   useEffect(() => {
@@ -41,7 +43,7 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
     }
   }, []);
 
-  const startConversation = useCallback(async (config: ConversationConfig) => {
+  const startConversation = useCallback(async (config: ConversationalAIConfig) => {
     try {
       setIsConnecting(true);
       setError(null);
@@ -50,15 +52,40 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
       setSession(newSession);
       setIsConnected(true);
       setIsListening(true);
+      setCurrentVoiceId(config.voice_id);
       
       // Load voice settings
-      const settings = await elevenLabsService.getVoiceSettings(config.voiceId);
+      const settings = await elevenLabsService.getVoiceSettings(config.voice_id);
       setVoiceSettings(settings);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to start conversation';
       setError(errorMessage);
       console.error('Voice conversation error:', err);
+    } finally {
+      setIsConnecting(false);
+    }
+  }, []);
+
+  const startConference = useCallback(async (config: VoiceConferenceConfig) => {
+    try {
+      setIsConnecting(true);
+      setError(null);
+      
+      const newSession = await elevenLabsService.startConference(config);
+      setSession(newSession);
+      setIsConnected(true);
+      setIsListening(true);
+      setCurrentVoiceId(config.voiceId);
+      
+      // Load voice settings
+      const settings = await elevenLabsService.getVoiceSettings(config.voiceId);
+      setVoiceSettings(settings);
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to start conference';
+      setError(errorMessage);
+      console.error('Voice conference error:', err);
     } finally {
       setIsConnecting(false);
     }
@@ -80,9 +107,15 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
   }, []);
 
   const toggleMute = useCallback(() => {
-    // In a real implementation, this would control the microphone
+    // Control the microphone through the current session
+    if (session?.media_stream) {
+      const audioTracks = session.media_stream.getAudioTracks();
+      audioTracks.forEach(track => {
+        track.enabled = !track.enabled;
+      });
+    }
     setIsListening(prev => !prev);
-  }, []);
+  }, [session]);
 
   const toggleListening = useCallback(() => {
     setIsListening(prev => !prev);
@@ -92,7 +125,8 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
     if (!session) return;
     
     try {
-      // In a real implementation, you would update the voice settings for the current conversation
+      // Update voice settings through ElevenLabs service
+      await elevenLabsService.updateVoiceSettings(currentVoiceId || 'default', settings);
       setVoiceSettings(settings);
       console.log('Voice settings updated:', settings);
     } catch (err) {
@@ -100,7 +134,7 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
       setError(errorMessage);
       console.error('Error updating voice settings:', err);
     }
-  }, [session]);
+  }, [session, currentVoiceId]);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -114,9 +148,9 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
       setIsConnecting(true);
       
       // Retry with the same configuration
-      const config: ConversationConfig = {
+      const config: ConversationalAIConfig = {
         agent_id: session.agent_id,
-        voice_id: session.voice_id || 'default',
+        voice_id: currentVoiceId || 'default',
         voice_settings: voiceSettings || {
           stability: 0.5,
           similarity_boost: 0.5,
@@ -139,7 +173,7 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
     } finally {
       setIsConnecting(false);
     }
-  }, [session, voiceSettings]);
+  }, [session, voiceSettings, currentVoiceId]);
 
   return {
     isConnected,
@@ -149,6 +183,7 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
     session,
     error,
     startConversation,
+    startConference,
     endConversation,
     toggleMute,
     toggleListening,

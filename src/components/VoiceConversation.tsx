@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useVoiceConversation } from '@/core/hooks/useVoiceConversation';
-import { ConversationConfig } from '@/core/services/ElevenLabsService';
+import { ConversationalAIConfig } from '@/core/services/ElevenLabsService';
 import { Mic, MicOff, Phone, PhoneOff, Volume2, VolumeX, Settings } from 'lucide-react';
 
 interface VoiceConversationProps {
@@ -51,7 +51,12 @@ export function VoiceConversation({
   // Update local settings when voice settings change
   useEffect(() => {
     if (voiceSettings) {
-      setLocalVoiceSettings(voiceSettings);
+      setLocalVoiceSettings({
+        stability: voiceSettings.stability ?? 0.5,
+        similarity_boost: voiceSettings.similarity_boost ?? 0.5,
+        style: voiceSettings.style ?? 0.0,
+        use_speaker_boost: voiceSettings.use_speaker_boost ?? true,
+      });
     }
   }, [voiceSettings]);
 
@@ -61,12 +66,12 @@ export function VoiceConversation({
       return;
     }
 
-    const config: ConversationConfig = {
-      agentId: elevenLabsAgentId,
-      voiceId,
-      voiceSettings: localVoiceSettings,
+    const config: ConversationalAIConfig = {
+      agent_id: elevenLabsAgentId,
+      voice_id: voiceId,
+      voice_settings: localVoiceSettings,
       language: 'en',
-      connectionType: 'webrtc',
+      connection_type: 'webrtc',
     };
 
     await startConversation(config);
@@ -272,7 +277,7 @@ export function VoiceConversation({
             Voice Chat with {senseiName}
           </h3>
           <p className="text-sm text-gray-500">
-            {session && `Duration: ${formatDuration(session.startTime)}`}
+            {session && `Duration: ${formatDuration(session.start_time)}`}
           </p>
         </div>
         <Button

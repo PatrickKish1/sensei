@@ -18,7 +18,7 @@ import {
   Square
 } from 'lucide-react';
 import { useVoiceConversation } from '@/core/hooks/useVoiceConversation';
-import { ConversationConfig, VoiceConferenceConfig } from '@/core/services/ElevenLabsService';
+import { ConversationalAIConfig, VoiceConferenceConfig } from '../core/services/ElevenLabsService';
 
 interface VoiceChatIntegrationProps {
   agentId: string;
@@ -45,6 +45,7 @@ export function VoiceChatIntegration({
     session,
     error,
     startConversation,
+    startConference,
     endConversation,
     toggleListening,
     voiceSettings,
@@ -74,18 +75,18 @@ export function VoiceChatIntegration({
 
   const handleStartVoiceChat = async () => {
     try {
-      const config: ConversationConfig = {
-        agentId,
-        voiceId,
-        voiceSettings: {
+      const config: ConversationalAIConfig = {
+        agent_id: agentId,
+        voice_id: voiceId,
+        voice_settings: {
           stability: 0.5,
           similarity_boost: 0.5,
           style: 0.0,
           use_speaker_boost: true,
         },
         language: 'en',
-        connectionType: 'websocket',
-        model: 'eleven_flash_v2_5',
+        connection_type: 'websocket',
+        model_id: 'eleven_flash_v2_5',
       };
 
       await startConversation(config);
@@ -107,18 +108,11 @@ export function VoiceChatIntegration({
           style: 0.0,
           use_speaker_boost: true,
         },
+        language: 'en',
       };
 
-      // For now, use the same startConversation method
-      // In a real implementation, you would have a separate startConference method
-      await startConversation({
-        agentId: config.conferenceId,
-        voiceId: config.voiceId,
-        voiceSettings: config.voiceSettings,
-        language: 'en',
-        connectionType: 'websocket',
-        model: 'eleven_flash_v2_5',
-      });
+      // Use the real conference implementation
+      await startConference(config);
 
       setConferenceParticipants(config.participants);
     } catch (error) {
@@ -342,7 +336,7 @@ export function VoiceChatIntegration({
           </h3>
           <div className="flex items-center space-x-2 mt-1">
             <Badge variant="secondary" className="text-xs">
-              {session && formatDuration(session.startTime)}
+              {session && formatDuration(session.start_time)}
             </Badge>
             {isConferenceMode && conferenceParticipants.length > 0 && (
               <Badge variant="outline" className="text-xs">
